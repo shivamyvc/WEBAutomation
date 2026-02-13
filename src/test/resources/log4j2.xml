@@ -1,0 +1,32 @@
+<Configuration status="WARN">
+
+	<Appenders>
+		<Console name="console" target="SYSTEM_OUT">
+
+			<PatternLayout
+
+				pattern="%d{dd-mm-yyyy HH:MM:SS}  [%C] %-5level - %msg%n">
+
+
+			</PatternLayout>
+
+
+		</Console>
+
+
+	</Appenders>
+
+	<Loggers>
+		<Root level="info">
+
+			<AppenderRef ref="console" />
+
+		</Root>
+
+
+	</Loggers>
+
+
+
+
+</Configuration>
