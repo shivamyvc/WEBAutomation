@@ -1,6 +1,7 @@
 package browser.utilites;
 
 import java.time.Duration;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,7 +12,9 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import browser.exceptions.BrowserException;
@@ -21,6 +24,7 @@ public class Browser {
 	private static ThreadLocal<WebDriver> driver = new ThreadLocal<WebDriver>();
 	private static Logger logger = LogManager.getLogger(Browser.class);
 	private static WebDriverWait wait;
+	private static Actions actions;
 	private static final Duration TIMEOUT_IN_SECONDS = Duration.ofSeconds(10);
 
 	public WebDriver getDriver() {
@@ -30,21 +34,27 @@ public class Browser {
 	public Browser(WebDriver Driver) {
 		this.driver.set(Driver);
 		wait = new WebDriverWait(Driver, TIMEOUT_IN_SECONDS);
+		actions = new Actions(Driver);
+
 	}
 
 	public Browser(String BrowserName) {
 		if (BrowserName.equalsIgnoreCase("chrome")) {
 			logger.info("Creating ChromeDriver");
 			this.driver.set(new ChromeDriver());
+			actions = new Actions(this.getDriver());
 		} else if (BrowserName.equalsIgnoreCase("edge")) {
 			logger.info("Creating EdgeDriver");
 			this.driver.set(new EdgeDriver());
+			actions = new Actions(this.getDriver());
 		} else if (BrowserName.equalsIgnoreCase("firefox")) {
 			logger.info("Creating FirefoxDriver");
 			this.driver.set(new FirefoxDriver());
+			actions = new Actions(this.getDriver());
 		} else {
 			logger.info(String.format("Inavlid Browser Name [%s] creating default ChromeDriver", BrowserName));
-			this.driver.set(new FirefoxDriver());
+			this.driver.set(new ChromeDriver());
+			actions = new Actions(this.getDriver());
 		}
 
 		wait = new WebDriverWait(driver.get(), TIMEOUT_IN_SECONDS);
@@ -123,6 +133,7 @@ public class Browser {
 		} catch (Exception e) {
 			// If it times out or isn't in DOM, return false instead of throwing exception
 			logger.error(String.format("WebElement [%s] is not visible", elementLocator.toString()));
+			logger.debug(String.format("WebElement [%s] is not visible", elementLocator.toString()), e);
 			return false;
 		}
 
@@ -138,6 +149,8 @@ public class Browser {
 			// If it times out or isn't in DOM, return false instead of throwing exception
 			logger.error(String.format("WebElement [%s] is not visible waited for %s seconds",
 					elementLocator.toString(), TIMEOUT));
+			logger.debug(String.format("WebElement [%s] is not visible waited for %s seconds",
+					elementLocator.toString(), TIMEOUT), e);
 			return false;
 		}
 
@@ -152,6 +165,7 @@ public class Browser {
 		} catch (Exception e) {
 			// If it times out or isn't in DOM, return false instead of throwing exception
 			logger.error(String.format("WebElement [%s] is not clickable", elementLocator.toString()));
+			logger.debug(String.format("WebElement [%s] is not clickable", elementLocator.toString()), e);
 			return false;
 		}
 
@@ -167,6 +181,8 @@ public class Browser {
 			// If it times out or isn't in DOM, return false instead of throwing exception
 			logger.error(String.format("WebElement [%s] is not clickable waited for %s seconds",
 					elementLocator.toString(), TIMEOUT));
+			logger.debug(String.format("WebElement [%s] is not clickable waited for %s seconds",
+					elementLocator.toString(), TIMEOUT), e);
 			return false;
 		}
 
@@ -188,12 +204,12 @@ public class Browser {
 			return true;
 		} catch (Exception e) {
 			logger.error(String.format("WebElement [%s] not clicked", elementLocator.toString()));
+			logger.debug(String.format("WebElement [%s] not clicked", elementLocator.toString()), e);
 			return false;
 		}
 
 	}
-	
-	
+
 	public boolean click(By elementLocator, int TIMEOUT) {
 
 		if (driver.get() == null) {
@@ -201,7 +217,7 @@ public class Browser {
 			return false;
 		}
 
-		if (!isClckable(elementLocator,TIMEOUT)) {
+		if (!isClckable(elementLocator, TIMEOUT)) {
 			return false;
 		}
 
@@ -210,9 +226,148 @@ public class Browser {
 			return true;
 		} catch (Exception e) {
 			logger.error(String.format("WebElement [%s] not clicked", elementLocator.toString()));
+			logger.debug(String.format("WebElement [%s] not clicked", elementLocator.toString()), e);
 			return false;
 		}
 
 	}
+
+	public boolean clearInput(By elementLocator) {
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			driver.get().findElement(elementLocator).clear();
+			;
+			return true;
+		} catch (Exception e) {
+			logger.error(String.format("Input WebElement [%s] not clear", elementLocator.toString()));
+			logger.debug(String.format("Input WebElement [%s] not clear", elementLocator.toString()), e);
+			return false;
+		}
+
+	}
+
+	public boolean type(By elementLocator, CharSequence value) {
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			if (!clearInput(elementLocator)) {
+				return false;
+			}
+			driver.get().findElement(elementLocator).sendKeys(value);
+			return true;
+		} catch (Exception e) {
+			logger.error(
+					String.format("Unable to type [%s] at input WebElement [%s] ", value, elementLocator.toString()));
+			logger.debug(
+					String.format("Unable to type [%s] at input WebElement [%s] ", value, elementLocator.toString()),
+					e);
+			return false;
+		}
+
+	}
+
+	public boolean sendKeys(By elementLocator, CharSequence value) {
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			driver.get().findElement(elementLocator).sendKeys(value);
+			return true;
+		} catch (Exception e) {
+			logger.error(
+					String.format("Unable to type [%s] at input WebElement [%s] ", value, elementLocator.toString()));
+			logger.debug(
+					String.format("Unable to type [%s] at input WebElement [%s] ", value, elementLocator.toString()),
+					e);
+			return false;
+		}
+
+	}
+
+	public WebElement getWebElement(By elementLocator) {
+
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return null;
+		}
+		try {
+
+			return wait.until(ExpectedConditions.presenceOfElementLocated(elementLocator));
+
+		} catch (Exception e) {
+			logger.error(String.format("Uanble to locate WebElement [%s] ", elementLocator.toString()));
+			logger.debug(String.format("Uanble to locate WebElement [%s] ", elementLocator.toString()), e);
+
+			return null;
+		}
+	}
+
+	public boolean selectByVisibleText(By elementLocator,String value) {
+		
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			Select select= new Select(getWebElement(elementLocator));
+			select.selectByVisibleText(value);	
+			return true;
+		}catch(Exception e) {
+			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", value,elementLocator.toString()));
+			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", value,elementLocator.toString()), e);
+			return false;
+		}
+		
+	}
+	
+	public boolean selectMultiByVisibleText(By elementLocator,List<String> values) {
+		
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			Select select= new Select(getWebElement(elementLocator));
+			for(String value: values) {
+				select.selectByVisibleText(value);
+			}
+				
+			return true;
+		}catch(Exception e) {
+			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),elementLocator.toString()));
+			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),elementLocator.toString()), e);
+			return false;
+		}
+		
+	}
+	
+	
+	
 
 }
