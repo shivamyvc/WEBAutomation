@@ -8,14 +8,14 @@ import java.util.List;
 import org.openqa.selenium.By;
 import org.testng.annotations.Test;
 
-import browser.utilites.Browser;
+import browser.utilites.BrowserUtility;
 
 public class BrowserTest {
 	
 	@Test
 	public void LaunchBrowser() throws InterruptedException {
 		
-		Browser br= new Browser("ChrOme");
+		BrowserUtility br= new BrowserUtility("ChrOme");
 		br.open("https://swift.techwithjatin.com/login");
 		Thread.sleep(2000);
 		br.type(By.id("username"),"shivammavii");

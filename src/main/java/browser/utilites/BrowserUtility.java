@@ -1,11 +1,15 @@
 package browser.utilites;
 
+import java.io.File;
 import java.time.Duration;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
@@ -17,57 +21,75 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
-import browser.exceptions.BrowserException;
-
-public class Browser {
+public class BrowserUtility {
 
 	private static ThreadLocal<WebDriver> driver = new ThreadLocal<WebDriver>();
-	private static Logger logger = LogManager.getLogger(Browser.class);
+	private static Logger logger = LogManager.getLogger(BrowserUtility.class);
 	private static WebDriverWait wait;
 	private static Actions actions;
-	private static final Duration TIMEOUT_IN_SECONDS = Duration.ofSeconds(10);
+	private static final Duration TIMEOUT_IN_SECONDS = Duration.ofSeconds(2);
+	private static TakesScreenshot screenshot;
 
 	public WebDriver getDriver() {
 		return driver.get();
 	}
 
-	public Browser(WebDriver Driver) {
+	public BrowserUtility(WebDriver Driver) {
 		this.driver.set(Driver);
 		wait = new WebDriverWait(Driver, TIMEOUT_IN_SECONDS);
 		actions = new Actions(Driver);
+		screenshot = (TakesScreenshot) this.getDriver();
 
 	}
 
-	public Browser(String BrowserName) {
+	public BrowserUtility(String BrowserName) {
 		if (BrowserName.equalsIgnoreCase("chrome")) {
 			logger.info("Creating ChromeDriver");
 			this.driver.set(new ChromeDriver());
-			actions = new Actions(this.getDriver());
 		} else if (BrowserName.equalsIgnoreCase("edge")) {
 			logger.info("Creating EdgeDriver");
 			this.driver.set(new EdgeDriver());
-			actions = new Actions(this.getDriver());
+
 		} else if (BrowserName.equalsIgnoreCase("firefox")) {
 			logger.info("Creating FirefoxDriver");
 			this.driver.set(new FirefoxDriver());
-			actions = new Actions(this.getDriver());
+
 		} else {
 			logger.info(String.format("Inavlid Browser Name [%s] creating default ChromeDriver", BrowserName));
 			this.driver.set(new ChromeDriver());
-			actions = new Actions(this.getDriver());
+
 		}
 
 		wait = new WebDriverWait(driver.get(), TIMEOUT_IN_SECONDS);
+		actions = new Actions(this.getDriver());
+		screenshot = (TakesScreenshot) this.getDriver();
 	}
 
 	public void open(String URL) {
-		logger.info(String.format("Opening URL [%s]", URL));
-		driver.get().get(URL);
+		if (driver.get() == null) {
+			logger.warn("driver is null cannot use closeTab()");
+			return;
+		}
+		try {
+			logger.info(String.format("Opening URL [%s]", URL));
+			driver.get().get(URL);
+		} catch (Exception e) {
+			logger.error(String.format("Failed to open URL [%s]", URL));
+		}
+
 	}
 
 	public void maximize() {
-		logger.info("Maximizing window");
-		driver.get().manage().window().maximize();
+		if (driver.get() == null) {
+			logger.warn("driver is null cannot use closeTab()");
+			return;
+		}
+		try {
+			logger.info("Maximizing window");
+			driver.get().manage().window().maximize();
+		} catch (Exception e) {
+			logger.error("Failed to maximize the window");
+		}
 	}
 
 	public void closeTab() {
@@ -243,7 +265,7 @@ public class Browser {
 		}
 		try {
 			driver.get().findElement(elementLocator).clear();
-			;
+
 			return true;
 		} catch (Exception e) {
 			logger.error(String.format("Input WebElement [%s] not clear", elementLocator.toString()));
@@ -266,6 +288,9 @@ public class Browser {
 			if (!clearInput(elementLocator)) {
 				return false;
 			}
+			// logger.info(
+			// String.format("Typing [%s] at input WebElement [%s] ", value,
+			// elementLocator.toString()));
 			driver.get().findElement(elementLocator).sendKeys(value);
 			return true;
 		} catch (Exception e) {
@@ -279,7 +304,39 @@ public class Browser {
 
 	}
 
+	public boolean typePassword(By elementLocator, CharSequence value) {
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			return false;
+		}
+
+		if (!isVisible(elementLocator)) {
+			return false;
+		}
+		try {
+			if (!clearInput(elementLocator)) {
+				return false;
+			}
+			// logger.info(
+			// String.format("Typing password [%s] at input WebElement [%s******] ",
+			// value.subSequence(0, Math.max(0, value.length()-(value.length()-1))),
+			// elementLocator.toString()));
+			driver.get().findElement(elementLocator).sendKeys(value);
+			return true;
+		} catch (Exception e) {
+			logger.error(String.format("Unable to type [%s] at input WebElement [%s] ",
+					value.subSequence(0, Math.max(0, value.length() - (value.length() - 1))),
+					elementLocator.toString()));
+			logger.debug(String.format("Unable to type [%s] at input WebElement [%s] ",
+					value.subSequence(0, Math.max(0, value.length() - (value.length() - 1))),
+					elementLocator.toString()), e);
+			return false;
+		}
+
+	}
+
 	public boolean sendKeys(By elementLocator, CharSequence value) {
+		// Wont wait for element
 		if (driver.get() == null) {
 			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
 			return false;
@@ -301,11 +358,32 @@ public class Browser {
 		}
 
 	}
+	
+	public String getText(By elementLocator) {
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use getText() on [%s]", elementLocator.toString()));
+			return null;
+		}
+		try {
+
+			return wait.until(ExpectedConditions.presenceOfElementLocated(elementLocator)).getText();
+
+		} catch (Exception e) {
+			logger.error(String.format("Uanble to locate WebElement [%s] ", elementLocator.toString()));
+			logger.debug(String.format("Uanble to locate WebElement [%s] ", elementLocator.toString()), e);
+
+			return null;
+		}
+		
+		
+		
+		
+	}
 
 	public WebElement getWebElement(By elementLocator) {
 
 		if (driver.get() == null) {
-			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			logger.warn(String.format("driver is null cannot use getWebElement() on [%s]", elementLocator.toString()));
 			return null;
 		}
 		try {
@@ -320,10 +398,10 @@ public class Browser {
 		}
 	}
 
-	public boolean selectByVisibleText(By elementLocator,String value) {
-		
+	public boolean selectByVisibleText(By elementLocator, String value) {
+
 		if (driver.get() == null) {
-			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			logger.warn(String.format("driver is null cannot use selectByVisibleText() on [%s]", elementLocator.toString()));
 			return false;
 		}
 
@@ -331,21 +409,22 @@ public class Browser {
 			return false;
 		}
 		try {
-			Select select= new Select(getWebElement(elementLocator));
-			select.selectByVisibleText(value);	
+			Select select = new Select(getWebElement(elementLocator));
+			select.selectByVisibleText(value);
 			return true;
-		}catch(Exception e) {
-			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", value,elementLocator.toString()));
-			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", value,elementLocator.toString()), e);
+		} catch (Exception e) {
+			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", value, elementLocator.toString()));
+			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", value, elementLocator.toString()),
+					e);
 			return false;
 		}
-		
+
 	}
-	
-	public boolean selectMultiByVisibleText(By elementLocator,List<String> values) {
-		
+
+	public boolean selectMultiByVisibleText(By elementLocator, List<String> values) {
+
 		if (driver.get() == null) {
-			logger.warn(String.format("driver is null cannot use click() on [%s]", elementLocator.toString()));
+			logger.warn(String.format("driver is null cannot use selectMultiByVisibleText() on [%s]", elementLocator.toString()));
 			return false;
 		}
 
@@ -353,21 +432,56 @@ public class Browser {
 			return false;
 		}
 		try {
-			Select select= new Select(getWebElement(elementLocator));
-			for(String value: values) {
+			Select select = new Select(getWebElement(elementLocator));
+			for (String value : values) {
 				select.selectByVisibleText(value);
 			}
-				
+
 			return true;
-		}catch(Exception e) {
-			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),elementLocator.toString()));
-			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),elementLocator.toString()), e);
+		} catch (Exception e) {
+			logger.error(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),
+					elementLocator.toString()));
+			logger.debug(String.format("Uanble to select [%s] in WebElement [%s] ", values.toArray(),
+					elementLocator.toString()), e);
 			return false;
 		}
-		
+
 	}
-	
-	
-	
+
+	public void captureScreenshot(String ScreenshotName) {
+		if (!ScreenshotName.contains(".png")) {
+			ScreenshotName = ScreenshotName + ".png";
+		}
+		if (screenshot == null) {
+			logger.warn(String.format("screenshot is null cannot use captureScreenshot()"));
+			return;
+		}
+
+		try {
+
+			File snap = screenshot.getScreenshotAs(OutputType.FILE);
+
+			File outputPath = new File(ScreenshotName);
+			FileUtils.copyFile(snap, outputPath);
+//			logger.warn(String.format("screenshot saved at [%s]",outputPath.getPath()));
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			logger.warn(String.format("Failed to capture screenshot [%s]", ScreenshotName));
+		}
+
+	}
+
+	public void selectDropdown(String value) {
+		// li[text()='Savings Account']
+
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use selectDropdown() with [%s]",value));
+			return;
+		}
+
+		click(By.xpath(String.format("//li[text()='%s']", value)));
+
+	}
 
 }
