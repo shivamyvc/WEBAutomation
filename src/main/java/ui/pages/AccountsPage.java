@@ -6,7 +6,7 @@ import org.openqa.selenium.WebDriver;
 import browser.utilites.BrowserUtility;
 import browser.utilites.CustomBy;
 
-public class AccountsPage extends BrowserUtility {
+public class AccountsPage extends HomePage {
 
 	public AccountsPage(String BrowserName) {
 		super(BrowserName);
@@ -43,5 +43,8 @@ public class AccountsPage extends BrowserUtility {
 		return getText(ACCOUNT_BALANCE_TEXT.format(accountNumber));
 
 	}
+	
+	
+	
 
 }

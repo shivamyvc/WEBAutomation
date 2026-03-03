@@ -40,8 +40,9 @@ public class HomePage extends BrowserUtility {
 
 	}
 
-	public void goToTransations() {
+	public TransactionsPage goToTransations() {
 		click(TRANSACTIONS_TAB, 20);
+		return new TransactionsPage(getDriver());
 
 	}
 

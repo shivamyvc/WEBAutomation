@@ -397,6 +397,25 @@ public class BrowserUtility {
 			return null;
 		}
 	}
+	
+	
+	public List<WebElement> getWebElements(By elementLocator) {
+
+		if (driver.get() == null) {
+			logger.warn(String.format("driver is null cannot use getWebElements() on [%s]", elementLocator.toString()));
+			return null;
+		}
+		try {
+
+			return wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(elementLocator));
+
+		} catch (Exception e) {
+			logger.error(String.format("Uanble to locate WebElements [%s] ", elementLocator.toString()));
+			logger.debug(String.format("Uanble to locate WebElements [%s] ", elementLocator.toString()), e);
+
+			return null;
+		}
+	}
 
 	public boolean selectByVisibleText(By elementLocator, String value) {
 
